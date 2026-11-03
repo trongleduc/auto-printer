@@ -2,18 +2,22 @@ import type { CSSProperties, ReactNode } from "react";
 import {
   CELL_H,
   CELL_W,
+  CODES_CENTER_X,
   COLS,
-  CUT_MARK_LEN,
-  CUT_MARK_OFFSET,
+  CUT_LINE_COLOR,
+  CUT_LINE_WIDTH,
   CUT_XS,
   CUT_YS,
   GRID_X,
-  GRID_Y,
+  HEADER_X,
+  HEADER_Y,
   PAGE_H,
   PAGE_W,
   ROWS,
   SLOTS_PER_SHEET,
+  TEXT_SIZE,
   cellOrigin,
+  rowCenterY,
 } from "@/lib/sheet-geometry";
 
 /**
@@ -76,23 +80,20 @@ function SheetFrame({ mode, children }: { mode: "print" | "preview"; children: R
   return <div style={{ containerType: "inline-size", width: "100%" }}>{sheet}</div>;
 }
 
-function CutMarks() {
-  const line = { background: "#000" };
-  const t = 0.15; // line thickness, mm
-  const marks: ReactNode[] = [];
-  const top = GRID_Y - CUT_MARK_OFFSET - CUT_MARK_LEN;
-  const bottom = GRID_Y + ROWS * CELL_H + CUT_MARK_OFFSET;
-  const left = GRID_X - CUT_MARK_OFFSET - CUT_MARK_LEN;
-  const right = GRID_X + COLS * CELL_W + CUT_MARK_OFFSET;
-  CUT_XS.forEach((x, i) => {
-    marks.push(<Abs key={`t${i}`} x={x - t / 2} y={top} w={t} h={CUT_MARK_LEN} style={line} />);
-    marks.push(<Abs key={`b${i}`} x={x - t / 2} y={bottom} w={t} h={CUT_MARK_LEN} style={line} />);
-  });
-  CUT_YS.forEach((y, i) => {
-    marks.push(<Abs key={`l${i}`} x={left} y={y - t / 2} w={CUT_MARK_LEN} h={t} style={line} />);
-    marks.push(<Abs key={`r${i}`} x={right} y={y - t / 2} w={CUT_MARK_LEN} h={t} style={line} />);
-  });
-  return <>{marks}</>;
+/** Grey cut lines across the whole sheet, through the middle of every gap between photos. */
+function CutLines() {
+  const t = CUT_LINE_WIDTH;
+  const line = { background: CUT_LINE_COLOR };
+  return (
+    <>
+      {CUT_XS.map((x, i) => (
+        <Abs key={`v${i}`} x={x - t / 2} y={0} w={t} h={PAGE_H} style={line} />
+      ))}
+      {CUT_YS.map((y, i) => (
+        <Abs key={`h${i}`} x={0} y={y - t / 2} w={PAGE_W} h={t} style={line} />
+      ))}
+    </>
+  );
 }
 
 export function Sheet({
@@ -108,12 +109,11 @@ export function Sheet({
   showEmpty?: boolean;
 }) {
   const byPos = new Map(cells.map((c) => [c.position, c]));
-  const rightMarginCenter = GRID_X + COLS * CELL_W + GRID_X / 2;
 
   return (
     <SheetFrame mode={mode}>
       {header && (
-        <Abs x={GRID_X} y={4.5} style={{ fontSize: u(2.4), lineHeight: 1, whiteSpace: "nowrap" }}>
+        <Abs x={HEADER_X} y={HEADER_Y} style={{ fontSize: u(TEXT_SIZE), lineHeight: 1, whiteSpace: "nowrap" }}>
           {header}
         </Abs>
       )}
@@ -145,7 +145,7 @@ export function Sheet({
         );
       })}
 
-      <CutMarks />
+      <CutLines />
 
       {/* Order codes per row, rotated in the right margin, listed left → right. */}
       {Array.from({ length: ROWS }, (_, row) => {
@@ -154,11 +154,11 @@ export function Sheet({
         return (
           <Abs
             key={row}
-            x={rightMarginCenter}
-            y={GRID_Y + row * CELL_H + CELL_H / 2}
+            x={CODES_CENTER_X}
+            y={rowCenterY(row)}
             style={{
               transform: "translate(-50%, -50%) rotate(90deg)",
-              fontSize: u(2.4),
+              fontSize: u(TEXT_SIZE),
               lineHeight: 1,
               whiteSpace: "nowrap",
               letterSpacing: u(0.1),
@@ -176,10 +176,10 @@ export function Sheet({
 export function CalibrationSheet({ mode }: { mode: "print" | "preview" }) {
   const ticks = (n: number) => Array.from({ length: n + 1 }, (_, i) => i);
   const rulerX = GRID_X + 10;
-  const rulerY = GRID_Y + CELL_H + 30;
+  const rulerY = cellOrigin(3).y + 30; // inside the middle row
   return (
     <SheetFrame mode={mode}>
-      <Abs x={GRID_X} y={4.5} style={{ fontSize: u(2.4), lineHeight: 1 }}>
+      <Abs x={HEADER_X} y={HEADER_Y} style={{ fontSize: u(TEXT_SIZE), lineHeight: 1 }}>
         Trang kiểm tra · mỗi ô phải đo được đúng 60 × 90 mm
       </Abs>
       {Array.from({ length: SLOTS_PER_SHEET }, (_, pos) => {
@@ -221,7 +221,7 @@ export function CalibrationSheet({ mode }: { mode: "print" | "preview" }) {
       <Abs x={rulerX + 92} y={rulerY + 2} style={{ fontSize: u(3) }}>
         100 mm
       </Abs>
-      <CutMarks />
+      <CutLines />
     </SheetFrame>
   );
 }
