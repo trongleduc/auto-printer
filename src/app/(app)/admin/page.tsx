@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, ExternalLink, Monitor, Pencil, Printer, Ruler, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, Monitor, Pencil, Printer, Ruler, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQueue } from "@/components/queue-context";
@@ -22,7 +22,20 @@ const FLUSH_OPTIONS = [
 const CHROME = String.raw`"C:\Program Files\Google\Chrome\Application\chrome.exe"`;
 /** Chrome profile used only by the print station. */
 const STATION_PROFILE = String.raw`C:\AutoPrinter\chrome`;
+/** Same idea on a Mac. `$HOME` is expanded when the launcher runs, not when it is created. */
+const MAC_STATION_PROFILE = "$HOME/AutoPrinter/chrome";
 const noopSubscribe = () => () => {};
+
+type GuideOs = "windows" | "mac";
+const GUIDE_OS: { value: GuideOs; label: string }[] = [
+  { value: "windows", label: "Windows" },
+  { value: "mac", label: "Mac" },
+];
+const detectGuideOs = (): GuideOs => (/Macintosh/.test(navigator.userAgent) ? "mac" : "windows");
+
+/** A Terminal command that creates a double-clickable Chrome launcher on the Desktop. */
+const macLauncherCmd = (name: string, args: string) =>
+  `printf '#!/bin/sh\\nopen -na "Google Chrome" --args ${args}\\n' > ~/Desktop/"${name}.command" && chmod +x ~/Desktop/"${name}.command"`;
 
 export default function AdminPage() {
   return (
@@ -265,55 +278,34 @@ function ThisDevice({ data, onChange }: { data: StationsDTO; onChange: () => voi
 
 function StationGuide() {
   const origin = useSyncExternalStore(noopSubscribe, () => location.origin, () => "https://<tên-miền>");
-  // A dedicated profile always starts a fresh Chrome process, so the flags apply even if
-  // another Chrome window is open. Its cookies are separate: register the station inside it.
-  const profile = `--user-data-dir="${STATION_PROFILE}" --no-first-run`;
-  const stationCmd = `${CHROME} ${profile} --kiosk-printing --disable-background-timer-throttling --app=${origin}/station`;
-  const setupCmd = `${CHROME} ${profile} --app=${origin}/print-test`;
+  const detected = useSyncExternalStore<GuideOs>(noopSubscribe, detectGuideOs, () => "windows");
+  const [picked, setPicked] = useState<GuideOs | null>(null);
+  const os = picked ?? detected;
 
   return (
     <Section title="Cài đặt máy trạm">
       <div className="space-y-5 rounded-xl border border-border bg-surface p-4">
-        <ol className="space-y-5 text-sm">
-          <Step n={1} title="Tạo shortcut “Trạm in”">
-            Trên máy nối với máy in: chuột phải màn hình → New → Shortcut, dán lệnh sau vào ô vị trí, đặt tên “Trạm in”.
-            <CommandBox command={stationCmd} />
-            <p className="mt-2">
-              Lệnh dùng một hồ sơ Chrome riêng, nên chế độ in tự động luôn có tác dụng, kể cả khi đang mở Chrome khác.
-            </p>
-          </Step>
-          <Step n={2} title="Đăng ký máy">
-            Mở shortcut “Trạm in”. Trang sẽ báo máy chưa được đăng ký: bấm “Đăng nhập quản trị”, rồi ở mục Máy trạm bấm
-            “Đăng ký máy này” và “Mở trang trạm in”. Phải làm trong chính cửa sổ này, vì hồ sơ riêng có đăng nhập riêng.
-          </Step>
-          <Step n={3} title="Chọn nơi in (làm một lần)">
-            Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần bằng shortcut thứ hai có hộp thoại. Đóng
-            cửa sổ “Trạm in”, tạo shortcut “Chọn máy in” với lệnh:
-            <CommandBox command={setupCmd} />
-            <p className="mt-2">
-              Mở nó, bấm “In trang kiểm tra” và ở mục <span className="font-medium text-text">Destination</span> chọn:
-            </p>
-            <ul className="mt-1.5 list-disc space-y-1 pl-5">
-              <li>
-                <span className="font-medium text-text">Máy in thật</span>: chọn máy in, Paper size A4, Scale 100%
-                (Default), rồi in.
-              </li>
-              <li>
-                <span className="font-medium text-text">Chưa có máy in, chỉ thử</span>: chọn “Save as PDF” (Lưu dưới dạng
-                PDF), không chọn “Microsoft Print to PDF” vì cái đó luôn hỏi tên file. Từ đó mỗi tờ được lưu thẳng vào
-                thư mục Downloads với tên <code className="font-mono text-xs">To-&lt;số tờ&gt;.pdf</code>.
-              </li>
-            </ul>
-            <p className="mt-2">Đóng cửa sổ rồi mở lại shortcut “Trạm in”. Khi có máy in thật, làm lại bước này.</p>
-          </Step>
-          <Step n={4} title="Giữ máy luôn bật">
-            Settings → System → Power: đặt “Sleep” thành Never. Để cửa sổ trạm in mở, không thu nhỏ.
-          </Step>
-          <Step n={5} title="Kiểm tra kích thước">
-            Đo trang kiểm tra (hoặc file PDF mở ở 100%): mỗi ô phải đúng 60 × 90 mm. Nếu bị lệch, kiểm tra trong driver
-            máy in rằng tỉ lệ là 100% (không bật “Fit to page”).
-          </Step>
-        </ol>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Hệ điều hành của máy trạm">
+          {GUIDE_OS.map((o) => (
+            <button
+              key={o.value}
+              role="radio"
+              aria-checked={os === o.value}
+              onClick={() => setPicked(o.value)}
+              className={cx(
+                "h-9 rounded-full border px-4 text-sm font-medium transition-colors",
+                os === o.value
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-border-strong text-text hover:bg-surface-2",
+              )}
+            >
+              {os === o.value && <Check className="-ml-1 mr-1 inline size-4" />}
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {os === "mac" ? <MacSteps origin={origin} /> : <WindowsSteps origin={origin} />}
 
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
           <Link href="/print-test" target="_blank" className={buttonStyles("secondary", "sm")}>
@@ -323,11 +315,121 @@ function StationGuide() {
         </div>
         <p className="text-xs text-muted">
           Nếu trang trạm in báo “Chế độ in tự động chưa bật”, cửa sổ đó không được mở bằng shortcut “Trạm in”. Hệ thống chỉ
-          biết lệnh in đã được gửi tới Windows; nếu máy in hết giấy hoặc kẹt giấy, hãy xử lý tại máy in rồi dùng “In lại”
-          trong mục Đã in nếu cần.
+          biết lệnh in đã được gửi tới {os === "mac" ? "macOS" : "Windows"}; nếu máy in hết giấy hoặc kẹt giấy, hãy xử lý tại
+          máy in rồi dùng “In lại” trong mục Đã in nếu cần.
         </p>
       </div>
     </Section>
+  );
+}
+
+function WindowsSteps({ origin }: { origin: string }) {
+  // A dedicated profile always starts a fresh Chrome process, so the flags apply even if
+  // another Chrome window is open. Its cookies are separate: register the station inside it.
+  const profile = `--user-data-dir="${STATION_PROFILE}" --no-first-run`;
+  const stationCmd = `${CHROME} ${profile} --kiosk-printing --disable-background-timer-throttling --app=${origin}/station`;
+  const setupCmd = `${CHROME} ${profile} --app=${origin}/print-test`;
+
+  return (
+    <ol className="space-y-5 text-sm">
+      <Step n={1} title="Tạo shortcut “Trạm in”">
+        Trên máy nối với máy in: chuột phải màn hình → New → Shortcut, dán lệnh sau vào ô vị trí, đặt tên “Trạm in”.
+        <CommandBox command={stationCmd} />
+        <p className="mt-2">
+          Lệnh dùng một hồ sơ Chrome riêng, nên chế độ in tự động luôn có tác dụng, kể cả khi đang mở Chrome khác.
+        </p>
+      </Step>
+      <Step n={2} title="Đăng ký máy">
+        Mở shortcut “Trạm in”. Trang sẽ báo máy chưa được đăng ký: bấm “Đăng nhập quản trị”, rồi ở mục Máy trạm bấm
+        “Đăng ký máy này” và “Mở trang trạm in”. Phải làm trong chính cửa sổ này, vì hồ sơ riêng có đăng nhập riêng.
+      </Step>
+      <Step n={3} title="Chọn nơi in (làm một lần)">
+        Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần bằng shortcut thứ hai có hộp thoại. Đóng
+        cửa sổ “Trạm in”, tạo shortcut “Chọn máy in” với lệnh:
+        <CommandBox command={setupCmd} />
+        <p className="mt-2">
+          Mở nó, bấm “In trang kiểm tra” và ở mục <span className="font-medium text-text">Destination</span> chọn:
+        </p>
+        <ul className="mt-1.5 list-disc space-y-1 pl-5">
+          <li>
+            <span className="font-medium text-text">Máy in thật</span>: chọn máy in, Paper size A4, Scale 100%
+            (Default), rồi in.
+          </li>
+          <li>
+            <span className="font-medium text-text">Chưa có máy in, chỉ thử</span>: chọn “Save as PDF” (Lưu dưới dạng
+            PDF), không chọn “Microsoft Print to PDF” vì cái đó luôn hỏi tên file. Từ đó mỗi tờ được lưu thẳng vào
+            thư mục Downloads với tên <code className="font-mono text-xs">To-&lt;số tờ&gt;.pdf</code>.
+          </li>
+        </ul>
+        <p className="mt-2">Đóng cửa sổ rồi mở lại shortcut “Trạm in”. Khi có máy in thật, làm lại bước này.</p>
+      </Step>
+      <Step n={4} title="Giữ máy luôn bật">
+        Settings → System → Power: đặt “Sleep” thành Never. Để cửa sổ trạm in mở, không thu nhỏ.
+      </Step>
+      <Step n={5} title="Kiểm tra kích thước">
+        Đo trang kiểm tra (hoặc file PDF mở ở 100%): mỗi ô phải đúng 60 × 90 mm. Nếu bị lệch, kiểm tra trong driver
+        máy in rằng tỉ lệ là 100% (không bật “Fit to page”).
+      </Step>
+    </ol>
+  );
+}
+
+function MacSteps({ origin }: { origin: string }) {
+  const profile = `--user-data-dir="${MAC_STATION_PROFILE}" --no-first-run`;
+  const stationCmd = macLauncherCmd(
+    "Tram in",
+    `${profile} --kiosk-printing --disable-background-timer-throttling --app=${origin}/station`,
+  );
+  const setupCmd = macLauncherCmd("Chon may in", `${profile} --app=${origin}/print-test`);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-3 rounded-xl bg-warn-soft p-4 text-sm text-warn">
+        <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+        <p>
+          Cách này chưa được kiểm chứng trên máy Mac thật. Làm hết các bước rồi in thử trước khi dùng. Nếu Chrome vẫn hiện
+          hộp thoại in, chuyển đầu ra sang “Lưu PDF vào thư mục” và in các file đó bằng tay.
+        </p>
+      </div>
+
+      <ol className="space-y-5 text-sm">
+        <Step n={1} title="Cài máy in và Chrome">
+          Cắm máy in vào Mac bằng cáp USB. Vào System Settings → Printers &amp; Scanners → Add Printer, thêm máy in rồi in
+          thử một trang từ Mac. Cài Google Chrome vào thư mục Applications nếu chưa có.
+        </Step>
+        <Step n={2} title="Tạo shortcut “Trạm in”">
+          Mở ứng dụng Terminal, dán lệnh sau rồi nhấn Return. Nếu Mac hỏi quyền truy cập Desktop, bấm Allow.
+          <CommandBox command={stationCmd} />
+          <p className="mt-2">
+            Trên Desktop sẽ có file “Tram in”. Mỗi lần cần mở trạm in thì bấm đúp file này. Khi Chrome đã mở, có thể đóng
+            cửa sổ Terminal đi kèm.
+          </p>
+        </Step>
+        <Step n={3} title="Đăng ký máy">
+          Mở “Tram in”. Trang sẽ báo máy chưa được đăng ký: bấm “Đăng nhập quản trị”, rồi ở mục Máy trạm bấm “Đăng ký máy
+          này” và “Mở trang trạm in”. Phải làm trong chính cửa sổ này, vì hồ sơ riêng có đăng nhập riêng.
+        </Step>
+        <Step n={4} title="Chọn nơi in (làm một lần)">
+          Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần bằng shortcut thứ hai có hộp thoại. Thoát
+          hẳn Chrome của “Tram in” (Cmd+Q), rồi dán lệnh sau vào Terminal:
+          <CommandBox command={setupCmd} />
+          <p className="mt-2">
+            Bấm đúp file “Chon may in” trên Desktop, bấm “In trang kiểm tra” và ở mục{" "}
+            <span className="font-medium text-text">Destination</span> chọn máy in, Paper size A4, Scale 100% (Default), rồi
+            in. Thoát bằng Cmd+Q rồi mở lại “Tram in”.
+          </p>
+        </Step>
+        <Step n={5} title="Giữ máy luôn bật">
+          Cắm sạc và không gập nắp máy. Trong System Settings, mục Battery (hoặc Energy trên máy để bàn), bật tùy chọn ngăn
+          Mac tự ngủ khi cắm điện. Ở mục Lock Screen, đặt thời gian tắt màn hình khi cắm điện thành Never. Tên mục có thể
+          khác đôi chút tùy phiên bản macOS. Để cửa sổ trạm in mở, không thu nhỏ.
+        </Step>
+        <Step n={6} title="Kiểm tra kích thước và in tự động">
+          Đo trang kiểm tra: mỗi ô phải đúng 60 × 90 mm. Nếu bị lệch, kiểm tra rằng tỉ lệ là 100% (không bật “Scale to
+          fit”). Sau đó gửi một tờ thật và xác nhận tờ được in mà không hiện hộp thoại.
+        </Step>
+      </ol>
+    </div>
   );
 }
 

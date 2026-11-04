@@ -8,7 +8,6 @@ import {
   CUT_LINE_WIDTH,
   CUT_XS,
   CUT_YS,
-  GRID_X,
   HEADER_X,
   HEADER_Y,
   PAGE_H,
@@ -172,11 +171,15 @@ export function Sheet({
   );
 }
 
-/** Test page: cell outlines with labels plus 100 mm rulers to verify 100% scale. */
+/** Must stay shorter than CELL_W: the ruler sits inside the centre cell, clear of the cut lines. */
+const RULER_MM = 50;
+
+/** Test page: cell outlines with labels plus a ruler in the centre cell to verify 100% scale. */
 export function CalibrationSheet({ mode }: { mode: "print" | "preview" }) {
   const ticks = (n: number) => Array.from({ length: n + 1 }, (_, i) => i);
-  const rulerX = GRID_X + 10;
-  const rulerY = cellOrigin(3).y + 30; // inside the middle row
+  const centre = cellOrigin(4);
+  const rulerX = centre.x + (CELL_W - RULER_MM) / 2;
+  const rulerY = centre.y + CELL_H / 2;
   return (
     <SheetFrame mode={mode}>
       <Abs x={HEADER_X} y={HEADER_Y} style={{ fontSize: u(TEXT_SIZE), lineHeight: 1 }}>
@@ -203,9 +206,8 @@ export function CalibrationSheet({ mode }: { mode: "print" | "preview" }) {
           </Abs>
         );
       })}
-      {/* Horizontal 100 mm ruler inside the centre cell area */}
-      <Abs x={rulerX} y={rulerY} w={100} h={0.2} style={{ background: "#000" }} />
-      {ticks(100).map((i) => (
+      <Abs x={rulerX} y={rulerY} w={RULER_MM} h={0.2} style={{ background: "#000" }} />
+      {ticks(RULER_MM).map((i) => (
         <Abs
           key={`h${i}`}
           x={rulerX + i - 0.075}
@@ -218,8 +220,8 @@ export function CalibrationSheet({ mode }: { mode: "print" | "preview" }) {
       <Abs x={rulerX} y={rulerY + 2} style={{ fontSize: u(3) }}>
         0
       </Abs>
-      <Abs x={rulerX + 92} y={rulerY + 2} style={{ fontSize: u(3) }}>
-        100 mm
+      <Abs x={rulerX + RULER_MM - 9} y={rulerY + 2} style={{ fontSize: u(3) }}>
+        {RULER_MM} mm
       </Abs>
       <CutLines />
     </SheetFrame>

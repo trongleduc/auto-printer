@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Internal photo-printing tool (UI copy is Vietnamese). Staff upload photos from a phone and set a quantity for each. All copies go into one shared queue, and every 9 copies become an A4 sheet laid out 3×3 (cells 6×9 cm). A Windows PC next to the printer keeps `/station` open in Chrome launched with `--kiosk-printing` (own `--user-data-dir` profile), so sheets print without a dialog; alternatively the station saves each sheet as a PDF into a chosen folder. There is no other printer integration.
+Internal photo-printing tool (UI copy is Vietnamese). Staff upload photos from a phone and set a quantity for each. All copies go into one shared queue, and every 9 copies become an A4 sheet laid out 3×3 (cells 6×9 cm). A Windows PC next to the printer keeps `/station` open in Chrome launched with `--kiosk-printing` (own `--user-data-dir` profile), so sheets print without a dialog. `/admin` also has a Mac setup guide using the same flags, not yet verified on a real Mac; alternatively the station saves each sheet as a PDF into a chosen folder. There is no other printer integration.
 
 ## Commands
 

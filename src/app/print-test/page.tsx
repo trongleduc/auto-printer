@@ -11,8 +11,8 @@ export default function PrintTestPage() {
         <div className="max-w-md text-center">
           <h1 className="text-xl font-semibold">Trang in kiểm tra</h1>
           <p className="mt-2 text-sm text-muted">
-            In trang này rồi đo bằng thước. Mỗi ô phải đúng 60 × 90 mm và thước phải dài đúng 100 mm. Nếu lệch, đặt tỉ lệ
-            in là 100% trong driver máy in.
+            In trang này rồi đo bằng thước. Mỗi ô phải đúng 60 × 90 mm và thước ở ô giữa phải dài đúng 50 mm. Nếu lệch, đặt tỉ
+            lệ in là 100% trong driver máy in.
           </p>
         </div>
         <Button variant="primary" size="lg" onClick={() => window.print()}>
