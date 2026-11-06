@@ -33,9 +33,32 @@ const GUIDE_OS: { value: GuideOs; label: string }[] = [
 ];
 const detectGuideOs = (): GuideOs => (/Macintosh/.test(navigator.userAgent) ? "mac" : "windows");
 
+/**
+ * Launchers close any Chrome already using the station profile before starting. Otherwise the new
+ * launch joins that process and inherits its flags: the printer dialog would flash and auto-print
+ * under --kiosk-printing, and a station started without the flag would show a dialog per sheet.
+ * Polite close first so cookies and settings are saved, forced close for anything stuck on a dialog.
+ */
+const winCloseProfile = (flag: string) =>
+  `powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'chrome.exe' -and $_.CommandLine -like '*${STATION_PROFILE}*' } | ForEach-Object { taskkill ${flag}/PID $_.ProcessId } 2>$null | Out-Null"`;
+
+const psQuote = (s: string) => `'${s.replaceAll("'", "''")}'`;
+
+/** A PowerShell command that creates a double-clickable Chrome launcher on the Desktop. */
+const winLauncherCmd = (name: string, args: string) => {
+  const lines = [
+    "@echo off",
+    winCloseProfile(""),
+    "timeout /t 2 /nobreak >nul",
+    winCloseProfile("/F "),
+    `start "" ${CHROME} ${args}`,
+  ];
+  return `Set-Content -Encoding ASCII -Path "$([Environment]::GetFolderPath('Desktop'))\\${name}.cmd" -Value ${lines.map(psQuote).join(",")}`;
+};
+
 /** A Terminal command that creates a double-clickable Chrome launcher on the Desktop. */
 const macLauncherCmd = (name: string, args: string) =>
-  `printf '#!/bin/sh\\nopen -na "Google Chrome" --args ${args}\\n' > ~/Desktop/"${name}.command" && chmod +x ~/Desktop/"${name}.command"`;
+  `printf '#!/bin/sh\\npkill -f "AutoPrinter/chrome"\\nsleep 2\\npkill -9 -f "AutoPrinter/chrome"\\nopen -na "Google Chrome" --args ${args}\\n' > ~/Desktop/"${name}.command" && chmod +x ~/Desktop/"${name}.command"`;
 
 export default function AdminPage() {
   return (
@@ -284,7 +307,7 @@ function StationGuide() {
 
   return (
     <Section title="Cài đặt máy trạm">
-      <div className="space-y-5 rounded-xl border border-border bg-surface p-4">
+      <div id="guide" className="scroll-mt-20 space-y-5 rounded-xl border border-border bg-surface p-4">
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Hệ điều hành của máy trạm">
           {GUIDE_OS.map((o) => (
             <button
@@ -314,9 +337,11 @@ function StationGuide() {
           </Link>
         </div>
         <p className="text-xs text-muted">
-          Nếu trang trạm in báo “Chế độ in tự động chưa bật”, cửa sổ đó không được mở bằng shortcut “Trạm in”. Hệ thống chỉ
+          Nếu trang trạm in báo “Chế độ in tự động chưa bật”, cửa sổ đó không được mở bằng file “Tram in”. Hệ thống chỉ
           biết lệnh in đã được gửi tới {os === "mac" ? "macOS" : "Windows"}; nếu máy in hết giấy hoặc kẹt giấy, hãy xử lý tại
           máy in rồi dùng “In lại” trong mục Đã in nếu cần.
+          {os === "windows" &&
+            " Nếu mỗi tờ lại hiện cửa sổ “Save Print Output As”, nơi in đang là Microsoft Print to PDF: làm lại bước “Chọn nơi in”."}
         </p>
       </div>
     </Section>
@@ -324,31 +349,38 @@ function StationGuide() {
 }
 
 function WindowsSteps({ origin }: { origin: string }) {
-  // A dedicated profile always starts a fresh Chrome process, so the flags apply even if
-  // another Chrome window is open. Its cookies are separate: register the station inside it.
+  // A dedicated profile keeps the flags working even if another Chrome window is open. Its
+  // cookies are separate: register the station inside it.
   const profile = `--user-data-dir="${STATION_PROFILE}" --no-first-run`;
-  const stationCmd = `${CHROME} ${profile} --kiosk-printing --disable-background-timer-throttling --app=${origin}/station`;
-  const setupCmd = `${CHROME} ${profile} --app=${origin}/print-test`;
+  const createCmd = [
+    winLauncherCmd("Tram in", `${profile} --kiosk-printing --disable-background-timer-throttling --app=${origin}/station`),
+    winLauncherCmd("Chon may in", `${profile} --app=${origin}/print-test`),
+  ].join("; ");
 
   return (
     <ol className="space-y-5 text-sm">
-      <Step n={1} title="Tạo shortcut “Trạm in”">
-        Trên máy nối với máy in: chuột phải màn hình → New → Shortcut, dán lệnh sau vào ô vị trí, đặt tên “Trạm in”.
-        <CommandBox command={stationCmd} />
+      <Step n={1} title="Cài máy in vào Windows">
+        Cắm máy in vào máy tính và cài driver. Vào Settings → Bluetooth &amp; devices → Printers &amp; scanners, kiểm tra máy
+        in có trong danh sách rồi in thử một trang. Chrome chỉ cho chọn các máy in có trong danh sách này.
+      </Step>
+      <Step n={2} title="Tạo file mở trạm in">
+        Trên máy nối với máy in: mở Start, gõ PowerShell rồi mở Windows PowerShell, dán lệnh sau và nhấn Enter.
+        <CommandBox command={createCmd} />
         <p className="mt-2">
-          Lệnh dùng một hồ sơ Chrome riêng, nên chế độ in tự động luôn có tác dụng, kể cả khi đang mở Chrome khác.
+          Trên Desktop sẽ có hai file “Tram in” và “Chon may in”. Hãy dùng hai file này thay cho shortcut tạo trước đây và
+          xóa các shortcut cũ. Mỗi file tự đóng cửa sổ của file kia rồi mới mở, nên không cần đóng tay. Chúng dùng một hồ sơ
+          Chrome riêng, không ảnh hưởng tới Chrome bạn đang dùng.
         </p>
       </Step>
-      <Step n={2} title="Đăng ký máy">
-        Mở shortcut “Trạm in”. Trang sẽ báo máy chưa được đăng ký: bấm “Đăng nhập quản trị”, rồi ở mục Máy trạm bấm
+      <Step n={3} title="Đăng ký máy">
+        Bấm đúp file “Tram in”. Trang sẽ báo máy chưa được đăng ký: bấm “Đăng nhập quản trị”, rồi ở mục Máy trạm bấm
         “Đăng ký máy này” và “Mở trang trạm in”. Phải làm trong chính cửa sổ này, vì hồ sơ riêng có đăng nhập riêng.
       </Step>
-      <Step n={3} title="Chọn nơi in (làm một lần)">
-        Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần bằng shortcut thứ hai có hộp thoại. Đóng
-        cửa sổ “Trạm in”, tạo shortcut “Chọn máy in” với lệnh:
-        <CommandBox command={setupCmd} />
+      <Step n={4} title="Chọn nơi in (làm một lần)">
+        Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần trong hộp thoại. Bấm đúp file “Chon may in”:
+        file sẽ tự đóng “Tram in”, sau vài giây mở trang kiểm tra.
         <p className="mt-2">
-          Mở nó, bấm “In trang kiểm tra” và ở mục <span className="font-medium text-text">Destination</span> chọn:
+          Bấm “In trang kiểm tra” và ở mục <span className="font-medium text-text">Destination</span> chọn:
         </p>
         <ul className="mt-1.5 list-disc space-y-1 pl-5">
           <li>
@@ -361,12 +393,12 @@ function WindowsSteps({ origin }: { origin: string }) {
             thư mục Downloads với tên <code className="font-mono text-xs">To-&lt;số tờ&gt;.pdf</code>.
           </li>
         </ul>
-        <p className="mt-2">Đóng cửa sổ rồi mở lại shortcut “Trạm in”. Khi có máy in thật, làm lại bước này.</p>
+        <p className="mt-2">Sau khi in xong, bấm đúp file “Tram in” để chạy lại trạm. Khi đổi máy in, làm lại bước này.</p>
       </Step>
-      <Step n={4} title="Giữ máy luôn bật">
+      <Step n={5} title="Giữ máy luôn bật">
         Settings → System → Power: đặt “Sleep” thành Never. Để cửa sổ trạm in mở, không thu nhỏ.
       </Step>
-      <Step n={5} title="Kiểm tra kích thước">
+      <Step n={6} title="Kiểm tra kích thước">
         Đo trang kiểm tra (hoặc file PDF mở ở 100%): mỗi ô phải đúng 60 × 90 mm. Nếu bị lệch, kiểm tra trong driver
         máy in rằng tỉ lệ là 100% (không bật “Fit to page”).
       </Step>
@@ -397,12 +429,12 @@ function MacSteps({ origin }: { origin: string }) {
           Cắm máy in vào Mac bằng cáp USB. Vào System Settings → Printers &amp; Scanners → Add Printer, thêm máy in rồi in
           thử một trang từ Mac. Cài Google Chrome vào thư mục Applications nếu chưa có.
         </Step>
-        <Step n={2} title="Tạo shortcut “Trạm in”">
+        <Step n={2} title="Tạo file mở trạm in">
           Mở ứng dụng Terminal, dán lệnh sau rồi nhấn Return. Nếu Mac hỏi quyền truy cập Desktop, bấm Allow.
           <CommandBox command={stationCmd} />
           <p className="mt-2">
             Trên Desktop sẽ có file “Tram in”. Mỗi lần cần mở trạm in thì bấm đúp file này. Khi Chrome đã mở, có thể đóng
-            cửa sổ Terminal đi kèm.
+            cửa sổ Terminal đi kèm. Nếu đã có file này từ trước, lệnh sẽ ghi đè bằng bản mới.
           </p>
         </Step>
         <Step n={3} title="Đăng ký máy">
@@ -410,13 +442,12 @@ function MacSteps({ origin }: { origin: string }) {
           này” và “Mở trang trạm in”. Phải làm trong chính cửa sổ này, vì hồ sơ riêng có đăng nhập riêng.
         </Step>
         <Step n={4} title="Chọn nơi in (làm một lần)">
-          Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần bằng shortcut thứ hai có hộp thoại. Thoát
-          hẳn Chrome của “Tram in” (Cmd+Q), rồi dán lệnh sau vào Terminal:
+          Chế độ tự động in vào nơi in được chọn gần nhất, nên cần chọn một lần trong hộp thoại. Dán lệnh sau vào Terminal:
           <CommandBox command={setupCmd} />
           <p className="mt-2">
-            Bấm đúp file “Chon may in” trên Desktop, bấm “In trang kiểm tra” và ở mục{" "}
-            <span className="font-medium text-text">Destination</span> chọn máy in, Paper size A4, Scale 100% (Default), rồi
-            in. Thoát bằng Cmd+Q rồi mở lại “Tram in”.
+            Bấm đúp file “Chon may in” trên Desktop: file sẽ tự đóng “Tram in”, sau vài giây mở trang kiểm tra. Bấm “In trang
+            kiểm tra” và ở mục <span className="font-medium text-text">Destination</span> chọn máy in, Paper size A4, Scale
+            100% (Default), rồi in. Sau đó bấm đúp file “Tram in” để chạy lại trạm.
           </p>
         </Step>
         <Step n={5} title="Giữ máy luôn bật">

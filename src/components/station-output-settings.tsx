@@ -32,6 +32,12 @@ export function StationOutputSettings() {
     readOutput().then(setState);
   }, []);
 
+  // This section only exists once loaded, so the browser's own jump to #output finds nothing.
+  const loaded = state !== null;
+  useEffect(() => {
+    if (loaded && location.hash === "#output") document.getElementById("output")?.scrollIntoView();
+  }, [loaded]);
+
   if (!state) return <div className="h-24 animate-pulse rounded-lg bg-surface-2" />;
   const { prefs, folder, folderState } = state;
 
@@ -56,7 +62,7 @@ export function StationOutputSettings() {
   };
 
   const modes = [
-    { v: "printer" as const, label: "In ra máy in", Icon: Printer, hint: "In thẳng tới máy in mặc định (cần shortcut “Trạm in”)." },
+    { v: "printer" as const, label: "In ra máy in", Icon: Printer, hint: "In không cần bấm, tới máy in đã chọn trong Chrome (cần mở bằng file “Tram in”)." },
     { v: "pdf" as const, label: "Lưu PDF vào thư mục", Icon: FileDown, hint: "Không cần máy in. Dùng để thử hoặc để in sau." },
   ];
 
@@ -91,6 +97,22 @@ export function StationOutputSettings() {
           );
         })}
       </div>
+
+      {prefs.mode === "printer" && (
+        <div className="flex gap-3 rounded-lg border border-border bg-surface p-3 text-sm">
+          <Printer className="size-5 shrink-0 text-muted" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Máy in được chọn trong Chrome, không chọn ở đây</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Trang web không xem được danh sách máy in. Mở file “Chon may in” trên Desktop rồi chọn máy in trong hộp thoại. Sau
+              đó mở file “Tram in”, trạm sẽ in vào máy đó từ các lần sau.
+            </p>
+            <a href="#guide" className="mt-1.5 inline-block text-xs underline">
+              Xem hướng dẫn cài đặt
+            </a>
+          </div>
+        </div>
+      )}
 
       {prefs.mode === "pdf" && supported && (
         <div className="space-y-3 rounded-lg border border-border bg-surface p-3 text-sm">

@@ -31,8 +31,8 @@ export default function AdminLoginPage() {
           }).catch(() => null);
           if (res?.ok) {
             const next = new URLSearchParams(location.search).get("next");
-            // Only allow same-site paths.
-            window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/admin";
+            // Only allow same-site paths. The hash survives the redirect here, e.g. /admin#output.
+            window.location.href = (next && next.startsWith("/") && !next.startsWith("//") ? next : "/admin") + location.hash;
             return;
           }
           setBusy(false);

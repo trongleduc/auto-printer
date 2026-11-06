@@ -123,7 +123,7 @@ export default function StationPage() {
         await sleep(10_000);
         return;
       }
-      // With Chrome's --kiosk-printing flag this prints to the default printer without a dialog.
+      // With Chrome's --kiosk-printing flag this prints without a dialog to the destination last chosen in this profile.
       const started = performance.now();
       window.print();
       // window.print() blocks while a print dialog is open; kiosk printing returns almost at once.
@@ -252,8 +252,8 @@ export default function StationPage() {
             <div>
               <p className="font-medium">Chế độ in tự động chưa bật</p>
               <p className="mt-1">
-                Hộp thoại in vừa hiện ra, nghĩa là Chrome không được mở bằng shortcut có cờ --kiosk-printing. Mở lại bằng
-                shortcut trong hướng dẫn cài máy trạm, hoặc chuyển đầu ra sang “Lưu PDF vào thư mục” trong{" "}
+                Hộp thoại in vừa hiện ra, nghĩa là Chrome không được mở bằng file “Tram in”. Mở lại bằng file đó trên Desktop,
+                hoặc chuyển đầu ra sang “Lưu PDF vào thư mục” trong{" "}
                 <Link href={SETTINGS_HREF} className="underline">
                   cài đặt máy trạm
                 </Link>{" "}
