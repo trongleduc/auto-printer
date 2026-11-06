@@ -252,7 +252,7 @@ export default function StationPage() {
             <div>
               <p className="font-medium">Chế độ in tự động chưa bật</p>
               <p className="mt-1">
-                Hộp thoại in vừa hiện ra, nghĩa là Chrome không được mở bằng file “Tram in”. Mở lại bằng file đó trên Desktop,
+                Hộp thoại in vừa hiện ra, nghĩa là Chrome không được mở bằng file “1 Tram in”. Mở lại bằng file đó trên Desktop,
                 hoặc chuyển đầu ra sang “Lưu PDF vào thư mục” trong{" "}
                 <Link href={SETTINGS_HREF} className="underline">
                   cài đặt máy trạm

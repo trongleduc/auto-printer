@@ -40,7 +40,7 @@ export default function PrintTestPage() {
             <div>
               <p className="font-medium">Hộp thoại chọn máy in không hiện hoặc tự đóng?</p>
               <p className="mt-1">
-                Cửa sổ này đang chạy chung với trạm in, nên Chrome tự in luôn tới nơi in cũ. Mở trang này bằng file “Chon may in”
+                Cửa sổ này đang chạy chung với trạm in, nên Chrome tự in luôn tới nơi in cũ. Mở trang này bằng file “2 Chon may in”
                 trên Desktop: file sẽ tự đóng trạm in trước. Nếu chưa có file, tạo theo hướng dẫn trong mục Cài đặt máy trạm.
               </p>
             </div>

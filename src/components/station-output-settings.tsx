@@ -62,7 +62,7 @@ export function StationOutputSettings() {
   };
 
   const modes = [
-    { v: "printer" as const, label: "In ra máy in", Icon: Printer, hint: "In không cần bấm, tới máy in đã chọn trong Chrome (cần mở bằng file “Tram in”)." },
+    { v: "printer" as const, label: "In ra máy in", Icon: Printer, hint: "In không cần bấm, tới máy in đã chọn trong Chrome (cần mở bằng file “1 Tram in”)." },
     { v: "pdf" as const, label: "Lưu PDF vào thư mục", Icon: FileDown, hint: "Không cần máy in. Dùng để thử hoặc để in sau." },
   ];
 
@@ -104,8 +104,8 @@ export function StationOutputSettings() {
           <div className="min-w-0 flex-1">
             <p className="font-medium">Máy in được chọn trong Chrome, không chọn ở đây</p>
             <p className="mt-0.5 text-xs text-muted">
-              Trang web không xem được danh sách máy in. Mở file “Chon may in” trên Desktop rồi chọn máy in trong hộp thoại. Sau
-              đó mở file “Tram in”, trạm sẽ in vào máy đó từ các lần sau.
+              Trang web không xem được danh sách máy in. Mở file “2 Chon may in” trên Desktop rồi chọn máy in trong hộp thoại. Sau
+              đó mở file “1 Tram in”, trạm sẽ in vào máy đó từ các lần sau.
             </p>
             <a href="#guide" className="mt-1.5 inline-block text-xs underline">
               Xem hướng dẫn cài đặt
